@@ -142,79 +142,138 @@ export class SoundSystem {
   }
 
   // ─── BGM generation ──────────────────────────────────────────────────────
-  // A-minor pentatonic, 128 BPM, 4-bar loop (~7.5 s)
+  // Grand orchestral march in C major, 130 BPM, 8-bar loop (~14.8 s)
+  // Inspired by classic space-opera fanfares — original composition.
+  // Layers: sawtooth (brass/lead) + square (bass) + triangle (strings) + percussion
 
   _buildBgm() {
     const sr      = this.ctx.sampleRate;
-    const bpm     = 128;
-    const beatSmp = Math.round(sr * 60 / bpm);   // ≈ 20672 samples/beat
-    const beats   = 16;                            // 4 bars × 4 beats
-    const total   = beatSmp * beats;               // ≈ 330 752 samples
+    const bpm     = 130;
+    const beatSmp = Math.round(sr * 60 / bpm);  // samples per beat
+    const beats   = 32;                           // 8 bars × 4 beats
+    const total   = beatSmp * beats;
 
     const buf = this.ctx.createBuffer(2, total, sr);
     const L   = buf.getChannelData(0);
     const R   = buf.getChannelData(1);
 
-    // Note frequencies
+    // ── Note frequencies (C major) ────────────────────────────────────────
     const F = {
       _:  0,
-      A2: 110.00, C3: 130.81, E3: 164.81, G3: 196.00,
-      A3: 220.00, C4: 261.63, D4: 293.66, E4: 329.63,
-      G4: 392.00, A4: 440.00, C5: 523.25,
+      C2: 65.41,  G2: 98.00,
+      C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61,
+      G3: 196.00, A3: 220.00, B3: 246.94,
+      C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23,
+      G4: 392.00, A4: 440.00, B4: 493.88,
+      C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46,
+      G5: 783.99, A5: 880.00,
     };
 
-    // Melody — 32 eighth-notes (2 steps/beat × 16 beats)
+    // ── Lead melody (sawtooth = brass, 8th notes, 64 slots) ──────────────
     const mel = [
-      F.A4, F.G4, F.E4, F.D4, F.E4, F.G4, F.A4, F.G4,
-      F.A4, F.C5, F.A4, F.G4, F.E4, F.D4, F.E4, F._,
-      F.G4, F.E4, F.D4, F.C4, F.D4, F.E4, F.G4, F.A4,
-      F.G4, F.A4, F.C5, F.A4, F.G4, F.E4, F.G4, F.E4,
+      // Bar 1: Heroic fanfare motif
+      F.G4, F.G4, F.G4, F._,  F.E5, F._,  F.D5, F._,
+      // Bar 2: Answering phrase (descending)
+      F.C5, F.C5, F.C5, F._,  F.A4, F._,  F.G4, F._,
+      // Bar 3: Rising action
+      F.E5, F.F5, F.G5, F._,  F.E5, F.D5, F.C5, F._,
+      // Bar 4: Resolution on dominant
+      F.G4, F._,  F.C5, F._,  F.G4, F._,  F.C5, F._,
+      // Bar 5: Second theme (starts a 3rd higher)
+      F.A4, F.A4, F.A4, F._,  F.F5, F._,  F.E5, F._,
+      // Bar 6: Continuation
+      F.D5, F.D5, F.D5, F._,  F.C5, F._,  F.B4, F._,
+      // Bar 7: Climactic ascending run
+      F.C5, F.D5, F.E5, F.F5, F.G5, F._,  F.A5, F._,
+      // Bar 8: Triumphant final cadence
+      F.C5, F._,  F.G4, F._,  F.E5, F._,  F.C5, F._,
     ];
 
-    // Bass — 16 quarter-notes (1 step/beat)
+    // ── Bass (square = low brass, quarter notes, 32 slots) ───────────────
     const bas = [
-      F.A2, F.A2, F.E3, F.E3, F.G3, F.G3, F.A2, F.A2,
-      F.A2, F.C3, F.E3, F.C3, F.G3, F.E3, F.A2, F.A2,
+      F.C2, F.G2, F.C3, F.G2,   // Bar 1 — I  V  I  V
+      F.C2, F.G2, F.C3, F.E3,   // Bar 2 — I  V  I  iii
+      F.A3, F.F3, F.C3, F.G2,   // Bar 3 — vi IV  I  V
+      F.C2, F.C2, F.G2, F.G2,   // Bar 4 — I  I  V  V
+      F.C2, F.G2, F.A3, F.E3,   // Bar 5 — I  V  vi iii
+      F.D3, F.A3, F.D3, F.A3,   // Bar 6 — ii vi ii vi
+      F.C3, F.F3, F.G2, F.G2,   // Bar 7 — I  IV V  V
+      F.C2, F.C2, F.C2, F.G2,   // Bar 8 — I  I  I  V
     ];
 
-    const half = beatSmp / 2;
+    // ── Strings (triangle = legato strings, half notes, 16 slots) ────────
+    const str = [
+      F.E4, F.G4,   // Bar 1
+      F.G4, F.C4,   // Bar 2
+      F.A4, F.C5,   // Bar 3
+      F.E4, F.G4,   // Bar 4
+      F.F4, F.A4,   // Bar 5
+      F.D4, F.F4,   // Bar 6
+      F.E4, F.G4,   // Bar 7
+      F.C4, F.G4,   // Bar 8
+    ];
 
-    // Pre-generate noise table for hihats / glitch bursts
+    const half     = beatSmp / 2;       // 8th note in samples
+    const twoBeats = beatSmp * 2;       // half note in samples
+
+    // Pre-generated noise for percussion
     const ns = new Float32Array(total);
     for (let i = 0; i < total; i++) ns[i] = Math.random() * 2 - 1;
 
     for (let i = 0; i < total; i++) {
-      // ── Lead (square, 8th-note steps) ──────────────────────────────
+      // ── Lead / brass (sawtooth, 8th-note steps) ──────────────────────
       const mi   = Math.floor(i / half) % mel.length;
       const mf   = mel[mi];
       const mPos = (i % half) / half;
+      // Staccato envelope: fast attack, hold 72 %, quick decay
       const mEnv = mf > 0
-        ? Math.min(mPos * 20, 1) * (mPos > 0.86 ? Math.max(0, (1 - mPos) / 0.14) : 1)
+        ? Math.min(mPos * 30, 1) * (mPos > 0.72 ? Math.max(0, (1 - mPos) / 0.28) : 1)
         : 0;
-      const mVal = mf > 0 ? ((i * mf / sr % 1 < 0.5) ? 1 : -1) * 0.20 * mEnv : 0;
+      const mVal = mf > 0 ? ((i * mf / sr) % 1 * 2 - 1) * 0.19 * mEnv : 0;
 
-      // ── Bass (square, quarter-note steps) ──────────────────────────
+      // ── Bass (square, quarter-note steps) ─────────────────────────────
       const bi   = Math.floor(i / beatSmp) % bas.length;
       const bf   = bas[bi];
       const bPos = (i % beatSmp) / beatSmp;
-      const bEnv = Math.min(bPos * 14, 1) * (bPos > 0.78 ? Math.max(0, (1 - bPos) / 0.22) : 1);
-      const bVal = (i * bf / sr % 1 < 0.5 ? 1 : -1) * 0.17 * bEnv;
+      const bEnv = Math.min(bPos * 10, 1) * (bPos > 0.80 ? Math.max(0, (1 - bPos) / 0.20) : 1);
+      const bVal = (i * bf / sr % 1 < 0.5 ? 1 : -1) * 0.22 * bEnv;
 
-      // ── Hihat (noise, on-beat + off-beat) ──────────────────────────
-      const bp   = i % beatSmp;
-      const onB  = bp < beatSmp * 0.07  ? (1 - bp / (beatSmp * 0.07)) * 0.11  : 0;
-      const offB = Math.abs(bp - half) < beatSmp * 0.05
-        ? (1 - Math.abs(bp - half) / (beatSmp * 0.05)) * 0.07 : 0;
-      const hhVal = ns[i] * (onB + offB);
+      // ── Strings (triangle, half-note steps) ───────────────────────────
+      const si    = Math.floor(i / twoBeats) % str.length;
+      const sf    = str[si];
+      const sPos  = (i % twoBeats) / twoBeats;
+      const sEnv  = Math.min(sPos * 5, 1) * (sPos > 0.88 ? Math.max(0, (1 - sPos) / 0.12) : 1);
+      const sPh   = (i * sf / sr) % 1;
+      const sVal  = sf > 0
+        ? (sPh < 0.5 ? sPh * 4 - 1 : 3 - sPh * 4) * 0.13 * sEnv
+        : 0;
 
-      // ── Glitch burst (once per 4 beats, like a snare hit) ─────────
-      const gp  = i % (beatSmp * 4);
-      const gE  = gp < beatSmp * 0.028 ? (1 - gp / (beatSmp * 0.028)) * 0.13 : 0;
-      const gV  = ns[(i + (total / 3 | 0)) % total] * gE;
+      // ── March percussion ──────────────────────────────────────────────
+      const bp      = i % beatSmp;
+      const beatNum = Math.floor(i / beatSmp) % 4;
 
-      const s = Math.max(-0.88, Math.min(0.88, mVal + bVal + hhVal + gV));
-      L[i] = s;
-      R[i] = s;
+      // Kick: heavy on beat 1, medium on beat 3
+      const isKick  = (beatNum === 0 || beatNum === 2);
+      const kickAmp = beatNum === 0 ? 0.24 : 0.16;
+      const kickE   = bp < beatSmp * 0.065
+        ? (1 - bp / (beatSmp * 0.065)) * (isKick ? kickAmp : 0) : 0;
+
+      // Snare: beats 2 and 4 (march backbeat)
+      const isSnare = (beatNum === 1 || beatNum === 3);
+      const snareE  = bp < beatSmp * 0.05
+        ? (1 - bp / (beatSmp * 0.05)) * (isSnare ? 0.15 : 0) : 0;
+
+      // Hi-hat: off-beats (adds march drive)
+      const offE = Math.abs(bp - half) < beatSmp * 0.035
+        ? (1 - Math.abs(bp - half) / (beatSmp * 0.035)) * 0.045 : 0;
+
+      const kickV  = ns[i] * kickE;
+      const snareV = ns[(i * 7 + (total >> 1)) % total] * snareE;
+      const hhV    = ns[(i * 3 + (total >> 2)) % total] * offE;
+
+      const mono = Math.max(-0.88, Math.min(0.88, mVal + bVal + sVal + kickV + snareV + hhV));
+      L[i] = mono;
+      R[i] = mono + sVal * 0.10;  // slight stereo spread on strings
     }
 
     return buf;

@@ -5,7 +5,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     super(scene, x, y, 'enemy');
     scene.add.existing(this);
     scene.physics.add.existing(this);
-    this.body.setVelocityY(130);
+    // velocity set by SpawnSystem after group.add (group defaults reset it to 0)
     this.hp = 1;
     this.scoreValue = 100;
 

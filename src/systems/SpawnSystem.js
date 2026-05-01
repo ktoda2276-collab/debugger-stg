@@ -57,6 +57,7 @@ export class SpawnSystem {
   _spawnOne(x, y = -32) {
     const e = new Enemy(this.scene, x, y);
     this.enemyGroup.add(e);
+    e.body.setVelocityY(130);  // must come after group.add (group resets velocity)
   }
 
   // 1体

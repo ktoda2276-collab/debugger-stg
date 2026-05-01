@@ -65,9 +65,13 @@ export class GameScene extends Phaser.Scene {
 
     if (this.zKey.isDown && this.player.canFire(time)) {
       this.player.markFired(time);
-      this.bullets.add(new Bullet(this, this.player.x, this.player.y - 22));
+      const b = new Bullet(this, this.player.x, this.player.y - 22);
+      this.bullets.add(b);
+      b.body.setVelocity(0, -700);  // after group.add (group resets velocity)
       this.soundSys.sfxShot();
     }
+
+    this._emitEngineExhaust();
 
     if (Phaser.Input.Keyboard.JustDown(this.xKey)) {
       this._bomb();
@@ -183,13 +187,12 @@ export class GameScene extends Phaser.Scene {
     const speed  = boss.phase === 1 ? 230 : 280;
     for (const deg of angles) {
       const rad = Phaser.Math.DegToRad(deg);
-      const b   = new Bullet(this,
-        boss.x, boss.y + 46,
-        Math.sin(rad) * speed,
-        Math.cos(rad) * speed,
-      );
+      const vx  = Math.sin(rad) * speed;
+      const vy  = Math.cos(rad) * speed;
+      const b   = new Bullet(this, boss.x, boss.y + 46);
       b.setTexture('enemyBullet');
       this.enemyBullets.add(b);
+      b.body.setVelocity(vx, vy);  // after group.add (group resets velocity)
     }
   }
 
@@ -331,6 +334,30 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ─── Visual effects ───────────────────────────────────────────────────────
+
+  _emitEngineExhaust() {
+    if (!this.player?.active) return;
+    this._exhaustTick = (this._exhaustTick || 0) + 1;
+    if (this._exhaustTick % 2 !== 0) return;
+
+    const COLORS = [0xff6600, 0xffaa00, 0xffff44, 0xff4400, 0xffffff];
+    const px = this.player.x;
+    const py = this.player.y + 12;  // engine nozzle position
+
+    for (let k = 0; k < 2; k++) {
+      const color = COLORS[(this._exhaustTick + k * 2) % COLORS.length];
+      const xOff  = Phaser.Math.Between(-4, 4);
+      const size  = Phaser.Math.Between(2, 5);
+      const p     = this.add.rectangle(px + xOff, py, size, size, color).setDepth(5);
+      this.tweens.add({
+        targets:  p,
+        y:        py + Phaser.Math.Between(16, 28),
+        alpha:    0,
+        duration: Phaser.Math.Between(100, 190),
+        onComplete: () => p.destroy(),
+      });
+    }
+  }
 
   _spawnExplosion(x, y) {
     const COLORS = [0xff4444, 0xff8800, 0xffff44, 0xff00ff, 0x00ffff];
