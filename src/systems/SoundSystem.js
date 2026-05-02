@@ -10,6 +10,8 @@ export class SoundSystem {
     this._bgmSrc = null;
     this._bgmBuf = null;
 
+    this._bgmRate = 1.0;
+
     try {
       this.ctx = scene.sound.context;
       this._out = this.ctx.createGain();
@@ -46,6 +48,7 @@ export class SoundSystem {
       this._bgmSrc = this.ctx.createBufferSource();
       this._bgmSrc.buffer = this._bgmBuf;
       this._bgmSrc.loop   = true;
+      this._bgmSrc.playbackRate.value = this._bgmRate;
       this._bgmSrc.connect(this._out);
       this._bgmSrc.start();
     };
@@ -57,6 +60,11 @@ export class SoundSystem {
     if (!this._bgmSrc) return;
     try { this._bgmSrc.stop(); } catch (_) {}
     this._bgmSrc = null;
+  }
+
+  setBgmRate(rate) {
+    this._bgmRate = rate;
+    if (this._bgmSrc) this._bgmSrc.playbackRate.value = rate;
   }
 
   setMuted(muted) {
@@ -104,6 +112,39 @@ export class SoundSystem {
       this._oscAt('square', f, f * 1.05, 0.36, 0.38, i * 0.10);
     });
     this._noiseAt(0.38, 0.38, 0.50);
+  }
+
+  sfxBossWarning() {
+    if (!this._ready) return;
+    [0, 1.2, 2.4].forEach(delay => {
+      const t   = this.ctx.currentTime + delay;
+      const dur = 0.8;
+      const o   = this.ctx.createOscillator();
+      const flt = this.ctx.createBiquadFilter();
+      const g   = this.ctx.createGain();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(90, t);
+      o.frequency.linearRampToValueAtTime(160, t + dur);
+      flt.type            = 'lowpass';
+      flt.frequency.value = 800;
+      g.gain.setValueAtTime(0.45, t);
+      g.gain.setValueAtTime(0.45, t + dur - 0.05);
+      g.gain.linearRampToValueAtTime(0.001, t + dur);
+      o.connect(flt); flt.connect(g); g.connect(this._out);
+      o.start(t); o.stop(t + dur + 0.01);
+    });
+  }
+
+  speak(text) {
+    if (SoundSystem.isMuted()) return;
+    if (!('speechSynthesis' in window)) return;
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang  = 'ja-JP';
+      u.rate  = 1.4;
+      u.pitch = 0.8;
+      window.speechSynthesis.speak(u);
+    } catch (_) {}
   }
 
   // ─── Internal: oscillator helpers ────────────────────────────────────────

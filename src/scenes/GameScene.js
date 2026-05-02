@@ -243,6 +243,7 @@ export class GameScene extends Phaser.Scene {
     if (!dead) return;
 
     // Boss defeated
+    this.soundSys.setBgmRate(1.0);
     this.soundSys.sfxBossDefeat();
     const s = this.scoreSystem.add(5000);
     this.scoreText.setText(`SCORE  ${s}`);
@@ -270,6 +271,7 @@ export class GameScene extends Phaser.Scene {
     if (this.player.lives <= 0) {
       this._over = true;
       this.player.destroy();
+      this.soundSys.setBgmRate(1.0);
       this.time.delayedCall(800, () => {
         this.scene.start('GameOverScene', { score: this.scoreSystem.getScore() });
       });
@@ -282,28 +284,62 @@ export class GameScene extends Phaser.Scene {
     this.phase = 'BOSS_INTRO';
     this.spawnSystem.paused = true;
 
-    for (const e of [...this.enemies.getChildren()]) {
-      if (e.active) e.destroy();
-    }
+    for (const e of [...this.enemies.getChildren()])      { if (e.active) e.destroy(); }
+    for (const b of [...this.enemyBullets.getChildren()]) { if (b.active) b.destroy(); }
 
     const { width, height } = this.scale;
-    this.cameras.main.flash(200, 255, 0, 0);
+    this.cameras.main.flash(400, 255, 0, 0);
+    this.soundSys.sfxBossWarning();
 
-    const warn = this.add.text(width / 2, height / 2, '! ! !  B O S S  ! ! !', {
-      fontSize: '38px',
-      color: '#ff4400',
-      fontFamily: 'monospace',
-      stroke: '#220000',
-      strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(50).setAlpha(0);
+    const phrases = [
+      { text: '気配がするッ！',   y: height * 0.30, color: '#ffffff', stroke: '#004488', size: '36px', thick: 6 },
+      { text: '来るぞッ！',       y: height * 0.50, color: '#ffff00', stroke: '#884400', size: '44px', thick: 7 },
+      { text: '来るぞオオオッ！', y: height * 0.70, color: '#ff2200', stroke: '#440000', size: '56px', thick: 9 },
+    ];
 
-    this.tweens.add({
-      targets: warn,
-      alpha: 1,
-      duration: 260,
-      yoyo: true,
-      repeat: 3,
-      onComplete: () => { warn.destroy(); this._spawnBoss(); },
+    const texts = [];
+
+    phrases.forEach(({ text, y, color, stroke, size, thick }, i) => {
+      this.time.delayedCall(i * 1000, () => {
+        if (this._over) return;
+        this.soundSys.speak(text);
+        this.cameras.main.shake(130, 0.010 * (i + 1));
+
+        const t = this.add.text(width / 2, y, text, {
+          fontSize: size,
+          color,
+          fontFamily: 'monospace',
+          fontStyle: 'bold',
+          stroke,
+          strokeThickness: thick,
+        }).setOrigin(0.5).setDepth(50).setScale(3).setAlpha(0);
+
+        texts.push(t);
+
+        this.tweens.add({
+          targets: t,
+          scaleX: 1, scaleY: 1,
+          alpha: 1,
+          duration: 280,
+          ease: 'Back.easeOut',
+          onComplete: () => {
+            const ox = t.x;
+            this.tweens.add({
+              targets: t,
+              x: { from: ox - 9, to: ox + 9 },
+              duration: 35,
+              yoyo: true,
+              repeat: 7,
+              onComplete: () => { t.x = ox; },
+            });
+          },
+        });
+      });
+    });
+
+    this.time.delayedCall(3000, () => {
+      texts.forEach(t => { if (t.active) t.destroy(); });
+      this._spawnBoss();
     });
   }
 
@@ -325,6 +361,7 @@ export class GameScene extends Phaser.Scene {
         this.boss.body.reset(this.boss.x, this.boss.y);
         this.bossActive = true;
         this.boss.body.setVelocityX(this.boss.moveSpeed);
+        this.soundSys.setBgmRate(1.5);
       },
     });
 
