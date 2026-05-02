@@ -223,7 +223,12 @@ export class GameScene extends Phaser.Scene {
     this._playerTakeDamage();
   }
 
-  _onBulletHitBoss(bullet, boss) {
+  _onBulletHitBoss(obj1, obj2) {
+    // overlap(Group, Sprite) → Phaser calls collideSpriteVsGroup(sprite, group)
+    // so callback args arrive as (boss, bullet) — use instanceof to be safe
+    const boss   = obj1 instanceof Boss ? obj1 : obj2;
+    const bullet = obj1 instanceof Boss ? obj2 : obj1;
+
     if (!boss.active || this._over) return;
     bullet.destroy();
 
